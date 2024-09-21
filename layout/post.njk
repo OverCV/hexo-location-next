@@ -1,16 +1,138 @@
 {% extends '_layout.njk' %}
 {% import '_macro/sidebar.njk' as sidebar_template with context %}
-
-{% block title %}{{ page.title }} | {{ title }}{% endblock %}
-
+{% block title %}
+  {{ page.title }} | {{ title }}
+{% endblock %}
 {% block class %}post posts-expand{% endblock %}
-
 {% block content %}
-
-  {{ partial('_macro/post.njk', {post: page}) }}
-
-{% endblock %}
-
-{% block sidebar %}
-  {{ sidebar_template.render(page.toc.enable) }}
-{% endblock %}
+  <head>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <link
+      rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+      <!-- FontAwesome para los íconos -->
+      <style>
+        /* Estilos generales */
+        .container {
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+        }
+        .post-content {
+          width: 90%;
+        }
+        .map-section {
+          width: 40%;
+        }
+        /* Estilo del mapa */
+        #map {
+          width: 100%;
+          height: 20vh;
+          margin-top: 21vh;
+          border: 1px solid #ccc;
+          border-radius: 8px;
+        }
+        /* Estilos para el texto de ubicación y el ícono */
+        .post-meta-location {
+          display: flex;
+          align-items: center;
+          font-size: 14px;
+          color: #888; /* Color del texto */
+          margin-top: 10px;
+        }
+        .post-meta-location i {
+          margin-right: 8px; /* Espaciado entre ícono y texto */
+          color: #888; /* Color del ícono para que coincida con el texto */
+        }
+        /* Estilo para el texto de la ubicación con subrayado punteado */
+        .post-meta-location span.location-text {
+          text-decoration: underline;
+          text-decoration-style: dotted;
+          text-underline-offset: 2px;
+          color: inherit; /* Mantiene el mismo color que el texto */
+        }
+        /* Ocultamos el subrayado en "Posted in:" */
+        .post-meta-location span.posted-in-text {
+          text-decoration: none;
+          padding-right: 0.3rem;
+        }
+      </style>
+    </head>
+    <body>
+      <div
+        class="container">
+        <!-- Sección de contenido principal del blog -->
+        <div class="post-content">
+          {{ partial('_macro/post.njk', {post: page}) }}
+        </div>
+        <!-- Sección del mapa -->
+        <div class="map-section">
+          <div id="map"></div>
+          <div
+            id="location" class="post-meta-location">
+            <!-- Ícono de localización y texto -->
+            <span class="post-meta-item-icon">
+              <i class="fas fa-location-dot"></i>
+            </span>
+            <span class="posted-in-text">Posted in:</span>
+            <span class="location-text">Determinando tu ubicación...</span>
+          </div>
+        </div>
+      </div>
+      <!-- Leaflet.js -->
+      <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+      <script>
+        document.addEventListener('DOMContentLoaded', function () { // Verifica si el navegador soporta geolocalización
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition, showError);
+          } else {
+            document.querySelector(".location-text").innerText = "Geolocalización no soportada.";
+          }
+          function showPosition(position) {
+            var lat = position.coords.latitude;
+            var lon = position.coords.longitude;
+            // Llamar a la API de Nominatim para obtener el nombre de la ciudad/país
+            var url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+            fetch(url)
+              .then(response => response.json())
+              .then(data => {
+                var location = data.address.city || data.address.town || data.address.village || data.address.country;
+                document.querySelector(".location-text").innerText = location;
+              })
+              .catch(error => {
+                console.log("Error de geocodificación:", error);
+              });
+            // Crear el mapa centrado en la posición del usuario
+            var map = L.map('map').setView([
+              lat, lon
+            ], 13);
+            // Añadir el mapa de OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+            // Añadir un marcador en la posición del usuario
+            L
+              .marker([lat, lon])
+              .addTo(map)
+              .bindPopup('¡Estás aquí!')
+              .openPopup();
+          }
+          function showError(error) {
+            var locationMessage = document.querySelector(".location-text");
+            switch (error.code) {
+              case error.PERMISSION_DENIED: locationMessage.innerText = "Has denegado el permiso de geolocalización.";
+                break;
+              case error.POSITION_UNAVAILABLE: locationMessage.innerText = "La información de ubicación no está disponible.";
+                break;
+              case error.TIMEOUT: locationMessage.innerText = "La solicitud de ubicación ha expirado.";
+                break;
+              case error.UNKNOWN_ERROR: locationMessage.innerText = "Ocurrió un error desconocido.";
+                break;
+            }
+          }
+        });
+      </script>
+    </body>
+  {% endblock %}
+  {% block sidebar %}
+    {{ sidebar_template.render(page.toc.enable) }}
+  {% endblock %}
+</head>
